@@ -1,178 +1,251 @@
 import streamlit as st
-import time
-import random
+from datetime import date, datetime
+import random, time
 
-st.set_page_config(page_title="JAMB PRO MAX 2026", page_icon="🚀", layout="wide")
+st.set_page_config(page_title="JAMB CBT Real App", page_icon="💻", layout="centered")
 
-# ===== MIND-BLOWING CSS =====
+# ===== REAL JAMB APP CSS - LOOKS LIKE REAL CBT =====
 st.markdown("""
 <style>
-.stApp {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);}
-.main-title {text-align:center; color:white; font-size:40px; font-weight:900; text-shadow:0 5px 15px rgba(0,0,0,0.3);}
-.card {background:white; border-radius:20px; padding:20px; box-shadow:0 10px 40px rgba(0,0,0,0.2); margin-bottom:15px; transition:0.3s;}
-.card:hover {transform: scale(1.02);}
-.score-big {font-size:70px; font-weight:900; text-align:center; background: linear-gradient(90deg, #0a8a0a, #00ff88); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
-.timer {background:black; color:#00ff88; padding:10px 20px; border-radius:50px; font-family:monospace; font-size:22px; font-weight:bold; border:2px solid #00ff88;}
-.ad-box {background: linear-gradient(90deg, #ff7a00, #ffaa00); color:white; padding:15px; border-radius:15px; text-align:center; font-weight:bold; margin:15px 0;}
+.stApp {background:#e9e9e9;}
+.cbt-header {background:#008000; color:white; padding:10px 15px; display:flex; justify-content:space-between; align-items:center; border-radius:0px;}
+.cbt-subject-bar {background:white; display:flex; gap:5px; padding:10px; overflow-x:auto; border-bottom:2px solid #008000;}
+.sub-btn {padding:8px 15px; border-radius:20px; border:1px solid #008000; background:white; color:#008000; font-weight:bold; cursor:pointer; white-space:nowrap;}
+.sub-btn.active {background:#008000; color:white;}
+.palette {background:white; padding:10px; border-radius:10px; margin:10px 0;}
+.q-num {width:35px; height:35px; border-radius:5px; border:1px solid #ccc; display:inline-flex; justify-content:center; align-items:center; margin:3px; font-weight:bold; cursor:pointer;}
+.q-num.answered {background:#008000; color:white; border-color:#008000;}
+.q-num.current {background:#ffcc00; border-color:#ffcc00;}
+.q-num.flagged {background:#ff4444; color:white;}
+.question-card {background:white; padding:20px; border-radius:10px; min-height:250px; box-shadow:0 2px 10px rgba(0,0,0,0.1);}
+.timer-box {background:black; color:#00ff00; padding:5px 12px; border-radius:5px; font-family:monospace; font-size:20px;}
+.instruction {background:white; padding:20px; border-radius:10px; line-height:1.6;}
+.result-slip {background:white; border:2px solid #008000; padding:20px; border-radius:10px; font-family:monospace;}
 </style>
 """, unsafe_allow_html=True)
 
-# ===== DATA =====
-CUTOFFS = {"UNILAG": 200, "UI": 200, "UNN": 180, "ABU": 180, "UNILORIN": 180, "LASU": 190, "Medicine": 280, "Law": 250, "Engineering": 220, "Computer Science": 220}
-NOVELS = {"The Life Changer": "The Life Changer by Khadija Abubakar Jalli - Summary: Salma and her friends... (Tap to read full novel)"}
+today = date.today()
+random.seed(today.timetuple().tm_yday)
 
-QUESTIONS_DB = {
-    "2024": {
+# ===== 40 QUESTIONS PER SUBJECT - REAL FORMAT =====
+def load_db():
+    base = {
         "English": [
-            {"q": "What is the synonym of 'Eloquent'?", "o": ["Fluent", "Dull", "Quiet", "Rude"], "a": 0, "exp": "Eloquent = fluent in speaking"},
-            {"q": "The Life Changer: Who is Salma's roommate?", "o": ["Tomiwa", "Ada", "Ngozi", "Bint"], "a": 1},
-        ],
+            {"q": "In 'The Life Changer', who is Salma's closest friend?", "o": ["Tomiwa", "Ada", "Ngozi", "Bint"], "a": 1},
+            {"q": "Choose the word that is nearest in meaning to 'Eloquent'", "o": ["Fluent in speech", "Dull", "Quiet", "Rude"], "a": 0},
+            {"q": "Antonym of 'Abundant' is ____", "o": ["Scarce", "Plenty", "Much", "Full"], "a": 0},
+            {"q": "The boy ___ to school yesterday", "o": ["go", "went", "gone", "going"], "a": 1},
+            {"q": "Select the correctly spelt word", "o": ["Accomodate", "Accommodate", "Acommodate", "Accommmodate"], "a": 1},
+        ] * 8,
         "Mathematics": [
-            {"q": "If log 4 base 2 = x, x = ?", "o": ["2", "3", "4", "1"], "a": 0},
-        ]
+            {"q": "If 2x + 3 = 11, find x", "o": ["4", "3", "5", "2"], "a": 0},
+            {"q": "Factorize x² - 9", "o": ["(x-3)(x+3)", "(x-9)(x+1)", "(x-3)²", "(x+3)²"], "a": 0},
+            {"q": "Find simple interest on N2000 at 5% for 2 years", "o": ["N200", "N300", "N100", "N400"], "a": 0},
+            {"q": "Solve: log₂ 8 = ?", "o": ["3", "2", "4", "1"], "a": 0},
+            {"q": "If sin θ = 0.5, θ = ?", "o": ["30°", "60°", "45°", "90°"], "a": 0},
+        ] * 8,
+        "Physics": [
+            {"q": "Unit of Power is?", "o": ["Watt", "Joule", "Newton", "Volt"], "a": 0},
+            {"q": "Acceleration due to gravity g = ?", "o": ["9.8 m/s²", "10 m/s²", "8.9 m/s²", "9 m/s²"], "a": 0},
+        ] * 20,
+        "Chemistry": [
+            {"q": "Atomic number of Carbon is?", "o": ["6", "8", "12", "4"], "a": 0},
+            {"q": "pH of neutral solution is?", "o": ["7", "0", "14", "1"], "a": 0},
+        ] * 20,
     }
-}
+    for k in base:
+        random.shuffle(base[k])
+        base[k] = base[k][:40]
+    return base
 
-if 'page' not in st.session_state:
-    st.session_state.page = "home"
-    st.session_state.year = "2024"
-    st.session_state.mock_answers = {}
-    st.session_state.mock_idx = 0
+DB = load_db()
 
-# ===== HEADER =====
-st.markdown('<div class="main-title">🚀 JAMB PRO MAX 2026 🚀</div>', unsafe_allow_html=True)
-st.markdown('<p style="text-align:center; color:white;">The Only JAMB App You Need to Score 300+</p>', unsafe_allow_html=True)
+if 'stage' not in st.session_state:
+    st.session_state.stage = "instructions"
+    st.session_state.subjects = ["English","Mathematics","Physics","Chemistry"]
+    st.session_state.current_sub = "English"
+    st.session_state.q_index = 0
+    st.session_state.answers = {sub: {} for sub in ["English","Mathematics","Physics","Chemistry"]}
+    st.session_state.flagged = set()
+    st.session_state.start = None
 
-# ===== SIDEBAR - SCORE CALCULATOR =====
-with st.sidebar:
-    st.header("🧮 JAMB Score Calculator")
-    st.write("Calculate your real JAMB score (400 marks)")
-    eng = st.slider("English (0-100)", 0, 100, 65)
-    sub2 = st.slider("Subject 2 (0-100)", 0, 100, 70)
-    sub3 = st.slider("Subject 3 (0-100)", 0, 100, 60)
-    sub4 = st.slider("Subject 4 (0-100)", 0, 100, 75)
-    total = eng + sub2 + sub3 + sub4
-    st.markdown(f'<div class="card"><div class="score-big">{total}</div><p style="text-align:center;">/ 400</p></div>', unsafe_allow_html=True)
-    if total >= 250: st.success("🔥 You fit enter Medicine/Law!")
-    elif total >= 200: st.info("✅ You go get admission!")
-    else: st.warning("💪 More practice needed!")
+# ===== 1. INSTRUCTIONS SCREEN - LIKE REAL JAMB =====
+if st.session_state.stage == "instructions":
+    st.markdown('<div class="cbt-header"><b>JAMB - UTME 2026</b><span>Candidate: JAMB PRO</span></div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="instruction">
+    <h3 style="text-align:center;">INSTRUCTIONS</h3>
+    <p>1. This is a MOCK examination with 4 subjects, 40 questions each.</p>
+    <p>2. Time allowed is <b>1 Hour 30 Minutes</b> (like real JAMB).</p>
+    <p>3. Click on subject tabs to switch subjects.</p>
+    <p>4. Click question numbers to navigate. Green = Answered, Yellow = Current, Red = Flagged.</p>
+    <p>5. Use Calculator if needed.</p>
+    <p>6. You must answer all questions before submission. The system will auto-submit when time is up.</p>
+    <p style="text-align:center; color:green;"><b>CHANGES DAILY: Questions shuffle everyday automatically based on date.</b></p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    st.divider()
-    st.header("🎯 Cut-off Checker")
-    uni = st.selectbox("Select School/Course", list(CUTOFFS.keys()))
-    if total >= CUTOFFS[uni]: st.success(f"✅ You meet {uni} cut-off ({CUTOFFS[uni]})")
-    else: st.error(f"❌ {uni} needs {CUTOFFS[uni]}. You have {total}")
-    
-    st.divider()
-    st.markdown('<div class="ad-box">📢 AD SPACE<br>Your AdMob Rewarded Ad</div>', unsafe_allow_html=True)
-    if st.button("▶ Watch Ad to Unlock All Years"):
-        st.balloons()
-        st.success("Unlocked 2015-2024! (Add real AdMob code here later)")
-
-# ===== HOME TABS =====
-if st.session_state.page == "home":
-    tab1, tab2, tab3, tab4 = st.tabs(["📅 Past Questions by Year", "🔥 Full JAMB Mock (400 Marks)", "📚 Novel & Syllabus", "🏆 Leaderboard"])
-    
-    with tab1:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        c1, c2 = st.columns([1,3])
-        with c1:
-            year = st.selectbox("Select Year", ["2024","2023","2022","2021","2020","2019","2018","2017","2016","2015"])
-            st.session_state.year = year
-            subject = st.selectbox("Select Subject", ["English","Mathematics","Physics","Chemistry","Biology","Government","Economics"])
-        with c2:
-            st.subheader(f"{subject} - {year} Past Questions")
-            st.write(f"Real JAMB {year} questions from original past papers")
-            if st.button(f"🚀 Start {subject} {year} CBT", type="primary", use_container_width=True):
-                st.session_state.page = "exam"
-                st.session_state.subject = subject
-                st.session_state.q_idx = 0
-                st.session_state.answers = {}
-                st.session_state.start_time = time.time()
-                st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-        st.info("💡 Tip: Each year has 40 real questions like real JAMB. We add more weekly!")
-
-    with tab2:
-        st.markdown('<div class="card" style="border:3px solid #0a8a0a;">', unsafe_allow_html=True)
-        st.subheader("🔥 REAL JAMB MOCK - 4 Subjects, 2 Hours, 400 Marks")
-        st.write("Exactly like real JAMB: English 60 Qs + 3 other subjects 40 Qs each = 180 Questions")
-        col1, col2 = st.columns(2)
-        with col1:
-            s2 = st.selectbox("Subject 2", ["Mathematics","Physics","Chemistry","Biology","Government"])
-            s3 = st.selectbox("Subject 3", ["Physics","Chemistry","Biology","Economics","Literature"])
-        with col2:
-            s4 = st.selectbox("Subject 4", ["Chemistry","Biology","Government","Economics","CRS"])
-            st.write("⏰ Time: 2 Hours | 🎯 Score: 400 Marks")
-        if st.button("START FULL MOCK EXAM NOW 🔥", type="primary", use_container_width=True):
-            st.session_state.page = "mock"
-            st.session_state.mock_idx = 0
-            st.session_state.mock_answers = {}
-            st.session_state.start_time = time.time()
-            st.session_state.mock_subjects = ["English", s2, s3, s4]
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📅 SELECT YEAR", use_container_width=True):
+            st.session_state.year = st.selectbox("Year", ["2024","2023","2022","2021"], key="yr")
+    with col2:
+        if st.button("🚀 START EXAM", type="primary", use_container_width=True):
+            st.session_state.stage = "exam"
+            st.session_state.start = time.time()
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
-    with tab3:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.subheader("📖 The Life Changer - JAMB Novel 2026")
-        st.write(NOVELS["The Life Changer"])
-        st.button("Read Full Novel Summary (Unlock with Ad)")
-        st.divider()
-        st.subheader("📋 JAMB Syllabus 2026")
-        st.write("✅ English Syllabus: Comprehension, Lexis, Structure, Oral Forms, Life Changer")
-        st.write("✅ Mathematics: Number Bases, Algebra, Geometry...")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with tab4:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.subheader("🏆 Top Scorers This Week")
-        st.table([{"Rank": "1st 🥇", "Name": "David O.", "Score": "345/400", "School": "UNILAG - Medicine"}, {"Rank": "2nd 🥈", "Name": "Aisha B.", "Score": "320/400", "School": "UI - Law"}, {"Rank": "You", "Name": "You?", "Score": f"{total}/400", "School": "Keep Pushing!"}])
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# ===== EXAM MODE =====
-elif st.session_state.page == "exam":
-    # (Same lively exam with palette, timer)
-    subject = st.session_state.subject
-    qs = QUESTIONS_DB.get(st.session_state.year, {}).get(subject, QUESTIONS_DB["2024"]["English"])
-    idx = st.session_state.q_idx
-    elapsed = int(time.time() - st.session_state.start_time)
-    rem = max(0, 1800-elapsed)
-    m,s = divmod(rem,60)
+# ===== 2. EXAM SCREEN - REAL CBT LOOK =====
+elif st.session_state.stage == "exam":
+    elapsed = int(time.time() - st.session_state.start) if st.session_state.start else 0
+    remaining = max(0, 5400 - elapsed) # 90 mins
+    mm, ss = divmod(remaining, 60)
+    hh, mm = divmod(mm, 60)
     
-    st.markdown(f'<div style="display:flex; justify-content:space-between;"><h3>{subject} {st.session_state.year}</h3><div class="timer">⏰ {m:02d}:{s:02d}</div></div>', unsafe_allow_html=True)
-    st.progress((idx+1)/len(qs))
-    
-    # Palette
-    cols = st.columns(10)
-    for i in range(len(qs)):
-        with cols[i%10]:
-            color = "✅" if i in st.session_state.answers else "⬜"
-            if st.button(f"{color}{i+1}", key=f"p{i}"): 
-                st.session_state.q_idx=i
+    if remaining == 0:
+        st.session_state.stage = "result"
+        st.rerun()
+
+    # Header like real JAMB
+    st.markdown(f"""
+    <div class="cbt-header">
+    <div><b>Time Left: <span class="timer-box">{hh:02d}:{mm:02d}:{ss:02d}</span></b></div>
+    <div>Candidate: JAMB PRO | Centre: LAGOS</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Subject Bar
+    st.markdown('<div class="cbt-subject-bar">', unsafe_allow_html=True)
+    cols = st.columns(len(st.session_state.subjects))
+    for i, sub in enumerate(st.session_state.subjects):
+        with cols[i]:
+            active = "active" if sub == st.session_state.current_sub else ""
+            if st.button(sub, key=f"sub_{sub}", use_container_width=True):
+                st.session_state.current_sub = sub
+                st.session_state.q_index = 0
                 st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # Main CBT Layout
+    left, right = st.columns([3,1])
     
-    q = qs[idx]
-    st.markdown(f'<div class="card"><b>Question {idx+1}:</b><br><h3>{q["q"]}</h3></div>', unsafe_allow_html=True)
-    choice = st.radio("Select answer:", q['o'], index=None)
-    if choice: st.session_state.answers[idx]=q['o'].index(choice)
+    with left:
+        qs = DB[st.session_state.current_sub]
+        idx = st.session_state.q_index
+        q = qs[idx]
+        
+        st.markdown(f"""
+        <div class="question-card">
+        <div style="display:flex; justify-content:space-between;">
+        <b>Question {idx+1} of 40 - {st.session_state.current_sub}</b>
+        <span><input type="checkbox"> Flag Question</span>
+        </div>
+        <hr>
+        <h4>{q['q']}</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Options like real JAMB (A, B, C, D)
+        labels = ["A", "B", "C", "D"]
+        for j, opt in enumerate(q['o']):
+            is_selected = st.session_state.answers[st.session_state.current_sub].get(idx) == j
+            if st.button(f"{labels[j]}. {opt}", key=f"opt_{idx}_{j}", use_container_width=True, type="primary" if is_selected else "secondary"):
+                st.session_state.answers[st.session_state.current_sub][idx] = j
+                # auto next
+                if idx < 39:
+                    st.session_state.q_index += 1
+                st.rerun()
+        
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            if st.button("⬅ Previous", disabled=(idx==0), use_container_width=True):
+                st.session_state.q_index -=1
+                st.rerun()
+        with c2:
+            if st.button("Flag 🚩", use_container_width=True):
+                st.session_state.flagged.add(f"{st.session_state.current_sub}_{idx}")
+                st.rerun()
+        with c3:
+            if st.button("Next ➡", disabled=(idx==39), use_container_width=True):
+                st.session_state.q_index +=1
+                st.rerun()
+
+    with right:
+        st.markdown('<div class="palette">', unsafe_allow_html=True)
+        st.write(f"**{st.session_state.current_sub} Palette**")
+        # 40 numbers grid
+        grid_cols = st.columns(5)
+        qs = DB[st.session_state.current_sub]
+        for i in range(40):
+            with grid_cols[i%5]:
+                ans = i in st.session_state.answers[st.session_state.current_sub]
+                curr = i == st.session_state.q_index
+                flag = f"{st.session_state.current_sub}_{i}" in st.session_state.flagged
+                label = f"{'✅' if ans else ''}{i+1}"
+                if st.button(label, key=f"pal_{st.session_state.current_sub}_{i}", use_container_width=True):
+                    st.session_state.q_index = i
+                    st.rerun()
+        
+        st.divider()
+        st.write("Legend: ✅ Answered | ⬜ Not Answered | 🚩 Flagged")
+        if st.button("CALCULATOR 🧮", use_container_width=True):
+            st.info("2+2=4 - Real JAMB calculator pops here")
+        if st.button("SUBMIT EXAM", type="primary", use_container_width=True):
+            st.session_state.show_confirm = True
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    if st.session_state.get("show_confirm"):
+        st.warning("Are you sure you want to submit? You cannot return.")
+        if st.button("YES, SUBMIT NOW"):
+            st.session_state.stage = "result"
+            st.rerun()
+
+# ===== 3. RESULT SLIP - LIKE REAL JAMB SLIP =====
+elif st.session_state.stage == "result":
+    st.balloons()
+    st.markdown('<div class="cbt-header"><b>JAMB RESULT SLIP 2026</b></div>', unsafe_allow_html=True)
     
-    if st.button("Submit Exam", type="primary", use_container_width=True):
-        st.session_state.page="result"
+    total_score = 0
+    breakdown = ""
+    for sub in st.session_state.subjects:
+        qs = DB[sub]
+        correct = sum(1 for i in range(40) if st.session_state.answers[sub].get(i) == qs[i]['a'])
+        score = int((correct/40)*100)  # JAMB scores each subject over 100
+        total_score += score
+        breakdown += f"<tr><td>{sub}</td><td>{correct}/40</td><td>{score}/100</td></tr>"
+    
+    st.markdown(f"""
+    <div class="result-slip">
+    <h3 style="text-align:center;">JOINT ADMISSIONS AND MATRICULATION BOARD</h3>
+    <p style="text-align:center;">2026 UTME RESULT - PRO MAX MOCK</p>
+    <p>Candidate Name: JAMB PRO MAX<br>Reg No: 2026XXXXXXX<br>Date: {today}</p>
+    <table style="width:100%; border-collapse:collapse; border:1px solid black;">
+    <tr style="background:#008000; color:white;"><th>Subject</th><th>Correct</th><th>Score</th></tr>
+    {breakdown}
+    <tr style="font-weight:bold; background:#eee;"><td>TOTAL</td><td></td><td>{total_score}/400</td></tr>
+    </table>
+    <p style="text-align:center; margin-top:15px; font-size:24px; font-weight:bold; color:#008000;">TOTAL: {total_score}/400</p>
+    <p style="text-align:center;">{"🔥 EXCELLENT - You will get Medicine/Law!" if total_score>=280 else "✅ GOOD - You will get admission!" if total_score>=200 else "💪 KEEP PRACTICING - Daily practice changes your score!"}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.subheader("📊 Analysis (Changes daily)")
+    for sub in st.session_state.subjects:
+        qs = DB[sub]
+        correct = sum(1 for i in range(40) if st.session_state.answers[sub].get(i) == qs[i]['a'])
+        st.progress(correct/40, text=f"{sub}: {correct}/40")
+    
+    st.info("📢 AD SPACE: Your AdMob Interstitial ad will show here after result - this is where you make money!")
+    
+    if st.button("🔄 RETAKE EXAM (New Questions Tomorrow)", type="primary", use_container_width=True):
+        st.session_state.stage = "instructions"
+        st.session_state.answers = {sub: {} for sub in st.session_state.subjects}
+        st.session_state.start = None
+        st.rerun()
+    
+    if st.button("🏠 Back to Home"):
+        st.session_state.stage = "instructions"
         st.rerun()
 
-elif st.session_state.page == "result":
-    st.balloons()
-    qs = QUESTIONS_DB.get(st.session_state.year, {}).get(st.session_state.subject, QUESTIONS_DB["2024"]["English"])
-    correct = sum(1 for i,q in enumerate(qs) if st.session_state.answers.get(i)==q['a'])
-    jamb_score = int(correct/len(qs)*100)
-    st.markdown(f'<div class="card" style="text-align:center;"><div class="score-big">{jamb_score}/100</div><h3>{correct}/{len(qs)} Correct</h3><p>{"You go blow JAMB! 🔥" if jamb_score>=70 else "You need more practice"}</p></div>', unsafe_allow_html=True)
-    for i,q in enumerate(qs):
-        with st.expander(f"{'✅' if st.session_state.answers.get(i)==q['a'] else '❌'} Q{i+1}"):
-            st.write(f"Your answer: {q['o'][st.session_state.answers.get(i,0)] if i in st.session_state.answers else 'None'}")
-            st.write(f"Correct: {q['o'][q['a']]}")
-            st.info(q.get('exp',''))
-    st.markdown('<div class="ad-box">📢 INTERSTITIAL AD - Show AdMob here, you go make money!</div>', unsafe_allow_html=True)
-    if st.button("Back Home"):
-        st.session_state.page="home"
-        st.rerun()
+st.markdown(f"<p style='text-align:center; color:#666; font-size:12px;'>App auto-updates daily | Seed: {today} | Real JAMB Clone | Made for you</p>", unsafe_allow_html=True)
